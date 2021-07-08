@@ -3,10 +3,7 @@ getGeneExpressionDf <- function(project, candidate, referenece.genes){
   # project = "TCGA-BRCA"
   # target.gene = "HLA-A"
   # referenece.genes = c("CIAO1", "CNBP",  "HEY1",  "UBC")
-  
-  print(referenece.genes)
-  print(candidate)
-  
+
   load(paste0(project,".TPM.paired.T.N.rdata"))
   
   if(  length(setdiff(referenece.genes, row.names(project.df)))!=0   ){
@@ -14,7 +11,6 @@ getGeneExpressionDf <- function(project, candidate, referenece.genes){
     showNotification(paste0(na.gene," may have low expression") )
     
     referenece.genes = setdiff(referenece.genes, na.gene)
-    print(111)
   }
     
   tmp.genes <- c(candidate, referenece.genes)
