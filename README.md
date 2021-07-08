@@ -8,7 +8,7 @@ iRGvalid provides an easy and robust method to validate and identify the most st
 
 [https://wlake.shinyapps.io/iRGvalid/](https://wlake.shinyapps.io/iRGvalid/)
 
-![iRGvalid]("fig/Readme.fig1.png")
+![iRGvalid](fig/Readme.fig1.png)
 
 
 
