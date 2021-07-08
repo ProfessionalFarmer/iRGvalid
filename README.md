@@ -11,9 +11,10 @@ iRGvalid provides an easy and robust method to validate and identify the most st
 ![iRGvalid](fig/Readme.fig1.png)
 
 # Run in local
-```git clone https://github.com/ProfessionalFarmer/iRGvalid.git
+```
+git clone https://github.com/ProfessionalFarmer/iRGvalid.git
 cd iRGvalid
-Rscript run.R
+Rscript app.R
 ```
 
 
