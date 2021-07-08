@@ -29,7 +29,7 @@ ui <- fluidPage(
                 ),
                 mainPanel(
                     #width = 16,
-                    p("This page only shows the correlations between target genes (HER2, MMP11, MYBL2 for TCGA-BRCA, NOTCH2, BRCA1, PDC for TCGA-COAD, HLA-A, ERBB3, HIF1A for TCGA-LUAD, and HLA-A, FNDC3B, ANXA1 for GSE102349-NPC) and reference panel"),
+                    p("This page only shows the correlations analysis results of target genes (HER2, MMP11, MYBL2 for TCGA-BRCA, NOTCH2, BRCA1, PDC for TCGA-COAD, HLA-A, ERBB3, HIF1A for TCGA-LUAD, and HLA-A, FNDC3B, ANXA1 for GSE102349-NPC) in our manuscript. If you would like to analyze a specific reference gene panel, please click 'explore' tab"),
                     br(),
                     # Output: Verbatim text for data summary ----
                     #verbatimTextOutput("iRGvalid.description"),
