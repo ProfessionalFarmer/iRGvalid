@@ -41,11 +41,11 @@ normalize <- function( gene.exp.df, target.gene, referenece.genes){
   
   
   # normalize 前后的数据
-  target.df <- data.frame(Sample = rownames(gene.exp.df), check.names = F,
+  res$target.df <- data.frame(Sample = rownames(gene.exp.df), check.names = F,
                           `Before normalization` = target.gene.exp,
                           `After normalization` = post.target.gene.exp)
   
-  res$scatter = ggpubr::ggscatter(target.df, x= "Before normalization", y = "After normalization")
+  res$scatter = ggpubr::ggscatter(res$target.df, x= "Before normalization", y = "After normalization")
   
   
   ########################################## 以上是correlation的分析，以下是组合分析
@@ -80,7 +80,7 @@ normalize <- function( gene.exp.df, target.gene, referenece.genes){
   all.res <- all.res[ order(all.res$V2,decreasing = T), ]
   
   # all.res$Gene <- paste(c(target.gene, project), sep="", collapse = "-")
-  colnames(all.res) =  c("Panel size", "Panel", "Correlation Rt value")
+  colnames(all.res) =  c("Panel size", "Correlation Rt value", "Panel")
   
   res$all.combination = all.res
   
@@ -88,4 +88,20 @@ normalize <- function( gene.exp.df, target.gene, referenece.genes){
   res
 
 }
+
+
+parseReferenceGene <- function(reference.gene){
+
+  #reference.gene = c("A\n B,\nC, C\nD")
+  reference.gene = stringr::str_replace_all(reference.gene, "\n",",")
+  reference.gene = stringr::str_replace_all(reference.gene, ",,",",")
+  reference.gene = stringr::str_remove_all(reference.gene, " ")
+  reference.gene = unique(unlist(strsplit(reference.gene, ",|\\n")))
+  
+  reference.gene
+  
+}
+
+
+
 

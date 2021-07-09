@@ -32,7 +32,8 @@ for(nf in list.files(path = "/data/home2/Zhongxu/work/from35/housek/TCGA",
   row.names(project.df) <- project.df$Row.names
   project.df = project.df[,-c(1)]
   
-  project.df = CancerSubtypes::FSbyVar(project.df, cut.type = "cutoff", value = "0.1")
+  #project.df = CancerSubtypes::FSbyVar(project.df, cut.type = "cutoff", value = "0.1")
+  project.df = project.df[rowMeans(project.df)>0.5, ]
   cat(dim(project.df))
   
   id.mapping <- loonR::id_mapping(row.names(project.df), key = "ENSEMBL", column = c("SYMBOL")  )
@@ -45,7 +46,7 @@ for(nf in list.files(path = "/data/home2/Zhongxu/work/from35/housek/TCGA",
   project.df <- project.df[id.mapping$Ref, ]
   rownames(project.df) = id.mapping$SYMBOL
   
-  save(project.df, file=paste0("/data/home2/Zhongxu/work/iRGvalid/data/", project, ".TPM.paired.T.N.rdata")  )
+  save(project.df, file=paste0("/data/home2/Zhongxu/work/iRGvalid/", project, ".TPM.paired.T.N.rdata")  )
   
 }
 
@@ -70,6 +71,24 @@ getGeneExpressionDf <- function(project, candidate, referenece.genes){
   candidate.df
   
 }
+
+
+
+#############################处理GTEX数据
+
+library(data.table)
+gtex.raw <- fread("/data/home2/Zhongxu/tmp/gtex/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct.gz")
+# remove duplicate
+gtex.raw <- gtex.raw[!duplicated(gtex.raw$Description), ]
+row.names(gtex.raw) <- gtex.raw$Description
+
+library(magrittr)
+gtex.raw %<>% dplyr::select(-c(1,2))
+
+#gtex.raw <- CancerSubtypes::FSbyVar(gtex.raw, cut.type = "cutoff", 0.01)
+gtex.raw <- gtex.raw[rowMeans(gtex.raw)>0.5, ]
+
+save(gtex.raw, file= "/data/home2/Zhongxu/tmp/gtex/gtex.raw.rdata")
 
 
 

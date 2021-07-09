@@ -5,10 +5,10 @@ account: wlake
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 4360852
-bundleId: 4798844
+bundleId: 4802079
 url: https://wlake.shinyapps.io/iRGvalid/
-when: 1625737443.41616
-lastSyncTime: 1625737443.41618
+when: 1625811194.71476
+lastSyncTime: 1625811194.71485
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: dataPreprocessing.R|fig/Readme.fig1.png|README.md|run.R
+ignoredFiles: dataPreprocessing.R|fig/Readme.fig1.png|README.md

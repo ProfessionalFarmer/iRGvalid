@@ -11,15 +11,16 @@ ui <- fluidPage(
     navbarPage(
         "iRGvalid: A Robust In Silico Method for Optimal Reference Gene Validation",
         id = "main_navbar",
-        
+          
         tabPanel(
             "IRGvalid Result",
             sidebarLayout(
                 sidebarPanel(
                     width = 4,
+                    
                     # Input: Slider for the number of bins ----
                     selectInput("IRGvalid.study.select", h3("Select result from our manuscript"), 
-                                choices = list(`TCGA`=list("COAD", "LUAD", "BRCA"), `GSE102349`=list("NPC") ), 
+                                choices = list(`TCGA`=list("COAD", "LUAD", "BRCA"), `GSE102349`=list("NPC"), `ALL (COAD, LUAD, BRCA and NPC)`=list("ALL") ), 
                                 selected = 1),
                     sliderInput("IRGvalid.study.panel.size", h3("Select panel size"),
                                 min = 1, max = 10, value = c(5, 6)),
@@ -45,14 +46,19 @@ ui <- fluidPage(
             "Explore",
             sidebarLayout(
                 sidebarPanel(
-                    selectInput("uc.project", h3("Select result from our manuscript"), 
-                                choices = c("TCGA-COAD", "TCGA-BLCA", "TCGA-BRCA", "TCGA-CESC", "TCGA-CHOL", "TCGA-ESCA", "TCGA-HNSC", "TCGA-KICH", "TCGA-KIRC", "TCGA-KIRP", "TCGA-LIHC", "TCGA-LUAD", "TCGA-LUSC", "TCGA-PAAD", "TCGA-PCPG", "TCGA-PRAD", "TCGA-READ", "TCGA-SARC", "TCGA-STAD", "TCGA-THCA", "TCGA-THYM", "TCGA-UCEC"), 
-                                selected = 1),
-                    textInput("uc.target", h3("Target gene to normalize"), "HLA-A"),
-                    textAreaInput("uc.panel",h3("Expected reference gene panel"), "CIAO1\nCNBP\nHEY1\nUBC", height = "350px"),
+                    
+                    checkboxGroupInput("uc.project", h3("Select dataset(s)"),
+                                choiceNames  = c("BLCA", "BRCA", "CESC", "COAD", "CHOL", "ESCA", "HNSC", "KICH", "KIRC", "KIRP", "LIHC", "LUAD", "LUSC", "PAAD", "PCPG", "PRAD", "READ", "SARC", "STAD", "THCA", "THYM", "UCEC"),
+                                choiceValues = c("TCGA-BLCA", "TCGA-BRCA", "TCGA-CESC", "TCGA-COAD", "TCGA-CHOL", "TCGA-ESCA", "TCGA-HNSC", "TCGA-KICH", "TCGA-KIRC", "TCGA-KIRP", "TCGA-LIHC", "TCGA-LUAD", "TCGA-LUSC", "TCGA-PAAD", "TCGA-PCPG", "TCGA-PRAD", "TCGA-READ", "TCGA-SARC", "TCGA-STAD", "TCGA-THCA", "TCGA-THYM", "TCGA-UCEC"),
+                                selected = "TCGA-COAD", inline = T),
+
+                    textAreaInput("uc.panel",h3("Enter candidate reference gene(s)"), "CIAO1\nCNBP\nHEY1\nUBC", height = "150px"),
+                    textInput("uc.target", h3("Enter target gene to normalize"), "HLA-A"),
                     actionButton("uc.showexpression", h4("Show expression")),
                     actionButton("uc.analysis", h4("Perform analysis"))
                 ),
+
+                
                 mainPanel(
                     h3("Expression levels in log2(TPM). User can explore other panels."),
                     htmlOutput("uc.description"),
@@ -89,7 +95,8 @@ server <- function(input, output, session) {
                "COAD" = all.projects.comb[,c(1,2,4,13,14)],
                "LUAD" = all.projects.comb[,c(1,2,5,8,9)],
                "BRCA" = all.projects.comb[,c(1,2,7,11,12)],
-               "NPC" = all.projects.comb[,c(1,2,3,6,10)])
+               "NPC" = all.projects.comb[,c(1,2,3,6,10)],
+               "ALL" = all.projects.comb)
     })
     
     # output$iRGvalid.description = renderPrint({ input$IRGvalid.study.panel.size[1] })
@@ -108,25 +115,28 @@ server <- function(input, output, session) {
                       ) 
     )
     
-    
-    
-    
-                      
+
     ############### User customed
     
-    output$uc.description = renderPrint({ c(input$uc.project, input$uc.target, input$uc.panel) })
-    
+    # For test only
+    # output$uc.description = renderPrint({ c(input$uc.project, input$uc.target, input$uc.panel) })
 
     observeEvent(input$uc.showexpression, {
-        referenece.genes = unlist( strsplit(input$uc.panel,"\n") )
-        referenece.genes = unlist( referenece.genes,  "," ) 
-        referenece.genes = stringr::str_remove_all(referenece.genes, " ")
+        referenece.genes = parseReferenceGene(input$uc.panel) 
+
         
+        p.df.list <- lapply(input$uc.project, function(p){
+            getGeneExpressionDf(p, input$uc.target, referenece.genes)
+        })
+        gene.df <- do.call(dplyr::bind_rows, p.df.list)
+        
+
         output$uc.expression.table <- renderDataTable({
-            getGeneExpressionDf(input$uc.project, input$uc.target, referenece.genes) %>% 
+            #getGeneExpressionDf(input$uc.project, input$uc.target, referenece.genes) %>% 
+            gene.df %>%
                 tibble::add_column(Sample=rownames(.), .before = 1)
         }, options = list(autoWidth = F, 
-                          pageLength = 20, 
+                          pageLength = 10, 
                           columnDefs = list(list( targets = c(0), width = '300px')) 
                         ) 
         )
@@ -134,18 +144,22 @@ server <- function(input, output, session) {
     })
                      
     
-    
     observeEvent(input$uc.analysis, {
         target.gene = input$uc.target
-        referenece.genes = unlist( referenece.genes,  "," ) 
-        referenece.genes = stringr::str_remove_all(referenece.genes, " ")
-        
+        referenece.genes = parseReferenceGene(input$uc.panel) 
+
         if(length(referenece.genes)>10){
             showNotification("Please input no more than 10 genes.\nOne gene per line.")
         }
         
         # obtain gene expressino data
-        gene.exp.df <- getGeneExpressionDf(input$uc.project, target.gene, referenece.genes)
+        # gene.exp.df <- getGeneExpressionDf(input$uc.project, target.gene, referenece.genes)
+        
+        p.df.list <- lapply(input$uc.project, function(p){
+            getGeneExpressionDf(p, input$uc.target, referenece.genes)
+        })
+        gene.exp.df <- do.call(dplyr::bind_rows, p.df.list)
+        gene.exp.df <- na.omit(gene.exp.df)
         
         # 有些基因被过滤掉了，getGeneExpressionDf函数没有考虑不在数据框的reference，所以这里更新reference
         referenece.genes <- intersect(referenece.genes, colnames(gene.exp.df))
@@ -159,22 +173,22 @@ server <- function(input, output, session) {
         output$uc.expression.table <- NULL
         
         
-        output$uc.beforeAndAfter.expression = renderDataTable(norm.res$target.df)
+        output$uc.beforeAndAfter.expression = renderDataTable(norm.res$target.df, options = list(pageLength = 10)  ) 
+       
         output$uc.after.correlation <- renderPlot( norm.res$scatter + xlab(paste0("Raw value - ",target.gene) )  +  ylab(paste0("Normalized value - ",target.gene) ) )
         
         
         summary.word <- paste0(
             "Final correlation (Rt value) between target gene and after normalization is <font color=\"red\"><h3>", 
             norm.res$normalize.correlation.value, "</h3></font>\n--------",
-            "<br>1. The correlations between target gene and reference genes are shown",
+            "<br>1. The correlation analysis results are shown",
             "<br>2, The expression levels before and after are shown as below",
             "<br>3, We also show the result of all the combination"
         )
         
         output$uc.description = renderText({ summary.word  })
         
-        
-        output$uc.allcombination.res = renderDataTable( norm.res$all.combination)
+        output$uc.allcombination.res = renderDataTable( norm.res$all.combination, options = list(pageLength = 10) )
         
         
     })
