@@ -1,7 +1,7 @@
-library(shiny)
-library(dplyr)
-library(data.table)
-library(ggpubr)
+if(!require(shiny)){BiocManager::install("shiny")}
+if(!require(dplyr)){BiocManager::install("dplyr")}
+if(!require(data.table)){BiocManager::install("data.table")}
+if(!require(ggpubr)){BiocManager::install("ggpubr")}
 
 # Shiny UI -------
 ui <- fluidPage(
@@ -24,13 +24,16 @@ ui <- fluidPage(
                                 selected = 1),
                     sliderInput("IRGvalid.study.panel.size", h3("Select panel size"),
                                 min = 1, max = 10, value = c(5, 6)),
-                    sliderInput("IRGvalid.study.mincor", h3("Choose minimum correlation cutoff"),
+                    sliderInput("IRGvalid.study.mincor", h3("Range of correlation (Rt) value"),
                                 min = 0, max = 1,
                                 value = c(0.95,1), step = 0.01),
                 ),
                 mainPanel(
                     #width = 16,
-                    p("This page only shows the correlations analysis results of target genes (HER2, MMP11, MYBL2 for TCGA-BRCA, NOTCH2, BRCA1, PDC for TCGA-COAD, HLA-A, ERBB3, HIF1A for TCGA-LUAD, and HLA-A, FNDC3B, ANXA1 for GSE102349-NPC) in our manuscript. If you would like to analyze a specific reference gene panel, please click 'explore' tab"),
+                    p("This page only shows the correlation analysis results of target genes (HER2, MMP11, MYBL2 for TCGA-BRCA, NOTCH2, BRCA1, PDC for TCGA-COAD, HLA-A, ERBB3, HIF1A for TCGA-LUAD, and HLA-A, FNDC3B, ANXA1 for GSE102349-NPC) by candidate reference genes (HNRNPL, PCBP1, RER1, SF3A1, CIAO1, SRSF4, CNBP, MYL12B, UBC, TMBIM6, RPS27, EIF1, GAPDH, HEY1) reported in our manuscript."),
+                    br(),
+                    p("If you would like to analyze a specific reference gene panel using any target gene(s), please click 'Explore' tab."),
+                    br(),
                     br(),
                     # Output: Verbatim text for data summary ----
                     #verbatimTextOutput("iRGvalid.description"),
@@ -179,11 +182,12 @@ server <- function(input, output, session) {
         
         
         summary.word <- paste0(
-            "Final correlation (Rt value) between target gene and after normalization is <font color=\"red\"><h3>", 
+            "The target genes is normalized against the combination of all the candidate gene(s) (", paste0(referenece.genes,sep="",collapse = ", "), "), ",
+            "and the correlation (Rt value) is <font color=\"red\"><h3>", 
             norm.res$normalize.correlation.value, "</h3></font>\n--------",
-            "<br>1. The correlation analysis results are shown",
-            "<br>2, The expression levels before and after are shown as below",
-            "<br>3, We also show the result of all the combination"
+            "<br>1. The correlations between target gene and reference genes are shown in the first figure.",
+            "<br>2, The expression levels of pre- and post-normalization (normalized by ", paste0(referenece.genes,sep="",collapse = ", "),") are shown in the second figure. Detailed values are shown in the first table.",
+            "<br>3, Ranked results of all reference gene combinations are listed in the second table. The best combination (<b>", unlist(norm.res$all.combination[1,3]), "</b>) has a Rt value of <b>", unlist(norm.res$all.combination[1,2]), "</b>.<br><br>"
         )
         
         output$uc.description = renderText({ summary.word  })

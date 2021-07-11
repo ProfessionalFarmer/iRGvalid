@@ -4,7 +4,7 @@ iRGvalid provides an easy and robust method to validate and identify the most st
 
 # Online resource
 
-[https://wlake.shinyapps.io/iRGvalid/](https://wlake.shinyapps.io/iRGvalid/)
+Availible online: [https://wlake.shinyapps.io/iRGvalid/](https://wlake.shinyapps.io/iRGvalid/)
 
 ![iRGvalid](fig/Readme.fig1.png)
 
