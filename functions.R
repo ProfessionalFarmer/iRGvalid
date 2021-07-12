@@ -8,7 +8,7 @@ getGeneExpressionDf <- function(project, candidate, referenece.genes){
   
   if(  length(setdiff(referenece.genes, row.names(project.df)))!=0   ){
     na.gene = setdiff(referenece.genes, row.names(project.df) )
-    showNotification(paste0(na.gene," may have low expression") )
+    showNotification(paste0(na.gene," may have low expression in ", project," dataset. It will be exclude in the following analysis") )
     
     referenece.genes = setdiff(referenece.genes, na.gene)
   }
