@@ -20,6 +20,8 @@ git clone https://github.com/ProfessionalFarmer/iRGvalid.git
 cd iRGvalid
 Rscript app.R
 ```
+# Updates
 
+20200930: Add SKCM project
 
 

@@ -1,0 +1,391 @@
+---
+title: "20200818Plot"
+author: "ZHU Zhongxu"
+date: "2020/8/18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(dplyr)
+library(reshape2)
+library(ggpubr)
+```
+
+Manuscirpt figures
+
+# Figure 1
+
+```{r fig.height=5, fig.width=8}
+
+rm(list=ls())
+
+library(dplyr)
+load("20200922-all.combination.rdata")
+
+colnames(all.projects.comb) <- c("Size", "Corr", "Panel", "Average", "Gene")
+
+fig.df <- reshape2::dcast(all.projects.comb[,-c(4)], Size+Panel~Gene, value.var=c("Corr"))
+fig.df <- fig.df %>% filter(Size==1)
+fig.df <- fig.df[,-c(1)]
+
+write.table(fig.df, file="./data/20200818/figure1.txt", quote = FALSE, row.names = F, sep="\t")
+
+
+fig.df <- as.data.frame( reshape2::melt(fig.df, id.vars=c("Panel")), stringsAsFactors = FALSE )
+
+fig.df$Project <-sapply(as.character(fig.df$variable), function(x){
+        x = strsplit(x,"\\-")
+        x = unlist(x)
+        x[length(x)]
+}
+)
+
+fig.df$Gene <-sapply(as.character(fig.df$variable), function(x){
+        x = strsplit(x,"\\-")
+        x = unlist(x)
+        paste(x[1:(length(x)-1)], collapse ="-")
+}
+)
+
+
+fig.df$Shape <- factor(fig.df$Gene, 
+                       levels = c("HER2","MMP11", "MYBL2",
+                                  "NOTCH2", "BRCA1", "PDC",
+                                  "HLA-A", "ERBB3", "HIF1A",
+                                  "HLA-A","FNDC3B", "ANXA1"),
+                       labels = c(1,2,3,1,2,3,1,2,3,1,2,3)
+                       )
+
+fig.df$Shape <- factor(as.character(fig.df$Shape))
+
+
+fig.df$Gene.Project <- paste(fig.df$Gene, fig.df$Project, sep=" in ")
+fig.df$Gene.Project <- factor(fig.df$Gene.Project, 
+                              levels = c("HER2 in BRCA","MMP11 in BRCA", "MYBL2 in BRCA",
+                                         "NOTCH2 in COAD", "BRCA1 in COAD", "PDC in COAD",
+                                         "HLA-A in LUAD", "ERBB3 in LUAD", "HIF1A in LUAD",
+                                         "HLA-A in NPC","FNDC3B in NPC", "ANXA1 in NPC")
+                              )
+
+
+
+fig.df$value <- as.numeric(fig.df$value)
+
+# order X axis
+reference.sort <- fig.df %>%  select(Panel, value) %>% group_by(Panel) %>% summarize(mean(value))
+colnames(reference.sort) <- c("Ref","Mean")
+reference.sort <- reference.sort[order(reference.sort$Mean,decreasing = T),]
+fig.df$Panel <- factor(fig.df$Panel, levels = reference.sort$Ref)
+
+
+
+p <- ggline(fig.df, x = "Panel", y= "value", color = "Gene.Project", size = 1, shape = "Shape", 
+       palette = c("#374E55FF", "#374E55FF", "#374E55FF", 
+                   "#DF8F44FF", "#DF8F44FF", "#DF8F44FF", 
+                   "#00A1D5FF", "#00A1D5FF", "#00A1D5FF", 
+                   "#B24745FF", "#B24745FF", "#B24745FF")
+       ) + ylab("Correlation") + xlab("Reference gene") +
+        rotate_x_text(angle = 45) 
+p <- ggpar(p, font.family = "Arial")
+
+p
+
+loonR::export2ppt(p, append = F)
+
+```
+
+# Figure 2
+
+## Average
+
+```{r fig.height=5, fig.width=11}
+
+rm(list=ls())
+
+library(dplyr)
+load("20200922-all.combination.rdata")
+
+colnames(all.projects.comb) <- c("Size", "Corr", "Panel", "Average", "Gene")
+
+fig.df <- reshape2::dcast(all.projects.comb[,-c(4)], Size+Panel~Gene, value.var=c("Corr"))
+
+fig.df <- fig.df %>% select(-c(Panel))
+fig.df <- as.data.frame(fig.df)
+fig.df <- data.frame(sapply(fig.df, function(x) as.numeric(as.character(x))))
+
+fig.df <- aggregate( fig.df[,-c(1)] , by=list(fig.df$Size), FUN=mean, na.rm=TRUE)
+
+write.table(fig.df, file="./data/20200818/figure2.average.txt", quote = FALSE,row.names = F, sep="\t")
+
+fig.df <- reshape2::melt(fig.df, id.vars="Group.1", variable.name = "Gene")
+
+colnames(fig.df) <- c("Size","Gene","Value")
+
+
+fig.df$Project <- sapply(as.character(fig.df$Gene), function(x){
+        x = strsplit(x,"\\.")
+        x = unlist(x)
+        x[length(x)]
+}
+)
+
+fig.df$Gene <- sapply(as.character(fig.df$Gene), function(x){
+        x = strsplit(x,"\\.")
+        x = unlist(x)
+        paste(x[1:(length(x)-1)], collapse ="-")
+}
+)
+
+
+fig.df$Shape <- factor(fig.df$Gene, 
+                       levels = c("HER2","MMP11", "MYBL2",
+                                  "NOTCH2", "BRCA1", "PDC",
+                                  "HLA-A", "ERBB3", "HIF1A",
+                                  "HLA-A","FNDC3B", "ANXA1"),
+                       labels = c(1,2,3,1,2,3,1,2,3,1,2,3)
+                       )
+
+fig.df$Shape <- factor(as.character(fig.df$Shape))
+
+
+fig.df$Gene.Project <- paste(fig.df$Gene, fig.df$Project, sep=" in ")
+fig.df$Gene.Project <- factor(fig.df$Gene.Project, 
+                              levels = c("HER2 in BRCA","MMP11 in BRCA", "MYBL2 in BRCA",
+                                         "NOTCH2 in COAD", "BRCA1 in COAD", "PDC in COAD",
+                                         "HLA-A in LUAD", "ERBB3 in LUAD", "HIF1A in LUAD",
+                                         "HLA-A in NPC","FNDC3B in NPC", "ANXA1 in NPC")
+                              )
+
+p <- ggline(fig.df, x = "Size", y= "Value", color = "Gene.Project", size = 1, shape = "Shape", 
+       palette = c("#374E55FF", "#374E55FF", "#374E55FF", 
+                   "#DF8F44FF", "#DF8F44FF", "#DF8F44FF", 
+                   "#00A1D5FF", "#00A1D5FF", "#00A1D5FF", 
+                   "#B24745FF", "#B24745FF", "#B24745FF")
+       ) + ylab("Average correlation") + xlab("Size")
+p <- ggpar(p, font.family = "Arial")
+p
+
+loonR::export2ppt(p, append = T)
+
+
+```
+
+
+## Best
+
+```{r fig.height=5, fig.width=11}
+
+rm(list=ls())
+
+library(dplyr)
+load("20200922-all.combination.rdata")
+
+colnames(all.projects.comb) <- c("Size", "Corr", "Panel", "Average", "Gene")
+
+fig.df <- reshape2::dcast(all.projects.comb[,-c(4)], Size+Panel~Gene, value.var=c("Corr"))
+
+fig.df <- fig.df %>% select(-c(Panel))
+fig.df <- as.data.frame(fig.df)
+fig.df <- data.frame(sapply(fig.df, function(x) as.numeric(as.character(x))))
+
+fig.df <- aggregate( fig.df[,-c(1)] , by=list(fig.df$Size), FUN=max, na.rm=TRUE)
+
+write.table(fig.df, file="./data/20200818/figure2.best.txt", quote = FALSE, row.names = F, sep="\t")
+
+
+fig.df <- reshape2::melt(fig.df, id.vars="Group.1", variable.name = "Gene")
+
+colnames(fig.df) <- c("Size","Gene","Value")
+
+data.table::setDT(fig.df)
+
+
+fig.df$point.size = 1
+max.ind <- fig.df[,{
+                  max.value=max(Value)
+                  max.value <- Value==max.value
+                  max.value[-min(which(max.value))] <- FALSE
+                  max.value
+                 },by=Gene]$V1
+fig.df$point.size[max.ind] = 5
+
+
+
+fig.df$Project <- sapply(as.character(fig.df$Gene), function(x){
+        x = strsplit(x,"\\.")
+        x = unlist(x)
+        x[length(x)]
+}
+)
+
+fig.df$Gene <- sapply(as.character(fig.df$Gene), function(x){
+        x = strsplit(x,"\\.")
+        x = unlist(x)
+        paste(x[1:(length(x)-1)], collapse ="-")
+}
+)
+
+
+fig.df$Shape <- factor(fig.df$Gene, 
+                       levels = c("HER2","MMP11", "MYBL2",
+                                  "NOTCH2", "BRCA1", "PDC",
+                                  "HLA-A", "ERBB3", "HIF1A",
+                                  "HLA-A","FNDC3B", "ANXA1"),
+                       labels = c(1,2,3,1,2,3,1,2,3,1,2,3)
+                       )
+
+fig.df$Shape <- factor(as.character(fig.df$Shape))
+
+
+fig.df$Gene.Project <- paste(fig.df$Gene, fig.df$Project, sep=" in ")
+fig.df$Gene.Project <- factor(fig.df$Gene.Project, 
+                              levels = c("HER2 in BRCA","MMP11 in BRCA", "MYBL2 in BRCA",
+                                         "NOTCH2 in COAD", "BRCA1 in COAD", "PDC in COAD",
+                                         "HLA-A in LUAD", "ERBB3 in LUAD", "HIF1A in LUAD",
+                                         "HLA-A in NPC","FNDC3B in NPC", "ANXA1 in NPC")
+                              )
+
+p <- ggline(fig.df, x = "Size", y= "Value", color = "Gene.Project", size = 1, shape = "Shape", point.size =fig.df$point.size,
+       palette = c("#374E55FF", "#374E55FF", "#374E55FF", 
+                   "#DF8F44FF", "#DF8F44FF", "#DF8F44FF", 
+                   "#00A1D5FF", "#00A1D5FF", "#00A1D5FF", 
+                   "#B24745FF", "#B24745FF", "#B24745FF")
+       ) + ylab("Best correlation") + xlab("Size")
+p <- ggpar(p, font.family = "Arial")
+p
+
+
+loonR::export2ppt(p, append = T)
+
+
+```
+
+
+# Best combination
+
+```{r}
+
+rm(list=ls())
+
+library(dplyr)
+load("20200922-all.combination.rdata")
+
+colnames(all.projects.comb) <- c("Size", "Corr", "Panel", "Average", "Gene")
+
+fig.df <- reshape2::dcast(all.projects.comb[,-c(4)], Size+Panel~Gene, value.var=c("Corr"))
+
+#fig.df <- fig.df %>% select(-c(Size))
+fig.df <- as.data.frame(fig.df)
+
+
+fig.df <- as.data.frame( reshape2::melt(fig.df, id.vars=c("Size","Panel")), stringsAsFactors = FALSE )
+fig.df$Size <- as.numeric(fig.df$Size)
+fig.df$value <- as.numeric(fig.df$value)
+fig.df <- fig.df[order(fig.df$Size,decreasing = F),]
+
+data.table::setDT(fig.df)
+
+fig.df[, c("Size", "Panel", "variable", "value", "Maximum")  :=       {
+                  max.value = max(value)
+                  max.value <- value==max.value
+                  max.value[-which(max.value) ] <- FALSE # 输出所有的
+                  #max.value[-which(max.value)[1] ] <- FALSE # 只输出最好的
+                  t = list(  Size,
+                          Panel,
+                          variable,
+                          value,
+                          max.value
+                  )
+                  t      
+                 },by=list(variable)]$V1
+
+fig.df <- fig.df[fig.df$Maximum,][,1:(ncol(fig.df)-1)]
+colnames(fig.df) <- c("Size", "Panel", "Gene", "Correlation")
+
+
+
+fig.df$Project <- sapply(as.character(fig.df$Gene), function(x){
+        x = strsplit(x,"\\-")
+        x = unlist(x)
+        x[length(x)]
+}
+)
+
+fig.df$Gene <- sapply(as.character(fig.df$Gene), function(x){
+        x = strsplit(x,"\\-")
+        x = unlist(x)
+        paste(x[1:(length(x)-1)], collapse ="-")
+}
+)
+
+fig.df <- fig.df[,c("Project", "Gene","Correlation","Size", "Panel")]
+write.table(fig.df, file="./data/20200818/table3.best.comb.txt", row.names = F, quote = FALSE, sep="\t")
+```
+
+
+# HLA-A in LUAD
+```{r fig.height=8,fig.height=8}
+rm(list=ls())
+target.gene <- c("HLA-A")
+target.df <- read.table("./data/20200818/HLA-A-LUAD-Pre-Post.txt", sep="\t", header = T, check.names = F)
+
+# 最后一列是group
+p.list <- lapply(colnames(target.df)[4:(ncol(target.df)-1)], function(x){
+       
+        tmp.df <- target.df[,c("Type","Name","Group",target.gene,x)]
+        pre <- tmp.df[tmp.df$Type=="Raw",]
+        
+        
+        post=pre
+        post$Type = "Normalized"
+        #post$Target <- post$Target -  as.vector(post[,x])
+        post[,x] <- post[,target.gene] -  as.vector(post[,x])
+        
+        tmp.df <- as.data.frame(rbind(pre, post))
+        
+        tmp.df <- tmp.df[tmp.df$Type=="Raw",]
+        
+        
+        p <- ggscatter(tmp.df, y = x, x = target.gene, add = "reg.line") +
+                stat_cor(aes(label = ..r.label..),  label.y = max(tmp.df[,x])+1) +
+                labs(x = target.gene, y = x)
+        p <- ggpar(p, font.family = "Arial")
+        p
+        
+})
+
+p <- ggarrange(plotlist = p.list, nrow = 4, ncol = 4) 
+loonR::export2ppt(p, append = T)
+
+# 最后一列是group
+p.list <- lapply(colnames(target.df)[4:(ncol(target.df)-1)], function(x){
+       
+        tmp.df <- target.df[,c("Type","Name","Group",target.gene,x)]
+        pre <- tmp.df[tmp.df$Type=="Raw",]
+        
+        
+        post=pre
+        post$Type = "Normalized"
+        #post$Target <- post$Target -  as.vector(post[,x])
+        post[,x] <- post[,target.gene] -  as.vector(post[,x])
+        
+        tmp.df <- as.data.frame(rbind(pre, post))
+        
+        tmp.df <- tmp.df[tmp.df$Type=="Normalized",]
+        
+        
+        p <- ggscatter(tmp.df, y = x, x = target.gene, add = "reg.line") +
+                stat_cor(aes(label = ..r.label..),  label.y = max(tmp.df[,x])+1) +
+                labs(x = target.gene, y = paste("Normalized by",x) )
+        p <- ggpar(p, font.family = "Arial")
+        p
+        
+})
+
+p <- ggarrange(plotlist = p.list, nrow = 4, ncol = 4) 
+loonR::export2ppt(p, append = T)
+
+```
+

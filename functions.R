@@ -18,19 +18,30 @@ getGeneExpressionDf <- function(project, candidate, referenece.genes){
   
   candidate.df <- data.frame( t(project.df[tmp.genes,]), check.names = FALSE )
   paired.num <- ncol(project.df)/2
-  candidate.df$Group <- rep(c("N", "T"), c(paired.num, paired.num))
+  
+  # SKCM没有paried N和T，所以label都是T
+  if( project %in% c("TCGA-SKCM")  ){
+    candidate.df$Group <- rep("TP", ncol(project.df) )
+  }else{
+    candidate.df$Group <- rep(c("NT", "TP"), c(paired.num, paired.num))
+  }
+  
+  # 20210930
+  candidate.df$Project = stringr::str_remove_all(project,"TCGA-")
+  
   candidate.df
   
 }
 
 
 normalize <- function( gene.exp.df, target.gene, referenece.genes){
-  res = list()
   
+  res = list()
   
   # 最后一列为Group，对 target.gene normalize之前计算correlation
   library(corrplot)
-  res$correlation.before <- round(cor(gene.exp.df[,-c(ncol(gene.exp.df))], method = c("pearson")  ), 3) # spearman pearson
+  # 倒数第二列是Group，倒数第一列是Project
+  res$correlation.before <- round(cor(gene.exp.df[,-c(ncol(gene.exp.df)-c(0,1))], method = c("pearson")  ), 3) # spearman pearson
 
 
   ###############################分别对target.gene进行

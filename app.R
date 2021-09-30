@@ -51,8 +51,8 @@ ui <- fluidPage(
                 sidebarPanel(
                     
                     checkboxGroupInput("uc.project", h3("Select dataset(s)"),
-                                choiceNames  = c("BLCA", "BRCA", "CESC", "COAD", "CHOL", "ESCA", "HNSC", "KICH", "KIRC", "KIRP", "LIHC", "LUAD", "LUSC", "PAAD", "PCPG", "PRAD", "READ", "SARC", "STAD", "THCA", "THYM", "UCEC"),
-                                choiceValues = c("TCGA-BLCA", "TCGA-BRCA", "TCGA-CESC", "TCGA-COAD", "TCGA-CHOL", "TCGA-ESCA", "TCGA-HNSC", "TCGA-KICH", "TCGA-KIRC", "TCGA-KIRP", "TCGA-LIHC", "TCGA-LUAD", "TCGA-LUSC", "TCGA-PAAD", "TCGA-PCPG", "TCGA-PRAD", "TCGA-READ", "TCGA-SARC", "TCGA-STAD", "TCGA-THCA", "TCGA-THYM", "TCGA-UCEC"),
+                                choiceNames  = c("BLCA", "BRCA", "CESC", "COAD", "CHOL", "ESCA", "HNSC", "KICH", "KIRC", "KIRP", "LIHC", "LUAD", "LUSC", "PAAD", "PCPG", "PRAD", "READ", "SARC", "STAD", "THCA", "THYM", "UCEC", "SKCM"),
+                                choiceValues = c("TCGA-BLCA", "TCGA-BRCA", "TCGA-CESC", "TCGA-COAD", "TCGA-CHOL", "TCGA-ESCA", "TCGA-HNSC", "TCGA-KICH", "TCGA-KIRC", "TCGA-KIRP", "TCGA-LIHC", "TCGA-LUAD", "TCGA-LUSC", "TCGA-PAAD", "TCGA-PCPG", "TCGA-PRAD", "TCGA-READ", "TCGA-SARC", "TCGA-STAD", "TCGA-THCA", "TCGA-THYM", "TCGA-UCEC", "TCGA-SKCM"),
                                 selected = "TCGA-COAD", inline = T),
 
                     textAreaInput("uc.panel",h3("Enter candidate reference gene(s)"), "CIAO1\nCNBP\nHEY1\nUBC", height = "150px"),
@@ -187,7 +187,8 @@ server <- function(input, output, session) {
             norm.res$normalize.correlation.value, "</h3></font>\n--------",
             "<br>1. The correlations between target gene and reference genes are shown in the first figure.",
             "<br>2, The expression levels of pre- and post-normalization (normalized by ", paste0(referenece.genes,sep="",collapse = ", "),") are shown in the second figure. Detailed values are shown in the first table.",
-            "<br>3, Ranked results of all reference gene combinations are listed in the second table. The best combination (<b>", unlist(norm.res$all.combination[1,3]), "</b>) has a Rt value of <b>", unlist(norm.res$all.combination[1,2]), "</b>.<br><br>"
+            "<br>3, Ranked results of all reference gene combinations are listed in the second table. The best combination (<b>", unlist(norm.res$all.combination[1,3]), "</b>) has a Rt value of <b>", unlist(norm.res$all.combination[1,2]), "</b>.",
+            "<br>4, If SKCM was chosen, all primary tumor tissues were included.","<br><br>"
         )
         
         output$uc.description = renderText({ summary.word  })

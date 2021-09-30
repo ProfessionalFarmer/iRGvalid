@@ -1,0 +1,434 @@
+---
+title: "20200803-top10geneExpression"
+author: "ZHU Zhongxu"
+date: "2020/8/3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+数据分析
+
+## Candidate
+根据pan cancer analysis in excel，Dr. Zhou 挑选了10个候选
+ENSG00000169714 CNBP CCHC-Type Zinc Finger Nucleic Acid Binding Protein. This gene encodes a nucleic-acid binding protein with seven zinc-finger domains. 
+ENSG00000165502 RPL36AL (Ribosomal Protein L36a Like) is a Protein Coding gene.
+ENSG00000173812 EIF1 (Eukaryotic Translation Initiation Factor 1) is a Protein Coding gene. 
+ENSG00000118680 MYL12B (Myosin Light Chain 12B) is a Protein Coding gene. 
+ENSG00000150991 UBC (Ubiquitin C) is a Protein Coding gene.
+ENSG00000112306 RPS12 (Ribosomal Protein S12) is a Protein Coding gene.
+ENSG00000139644 TMBIM6 (Transmembrane BAX Inhibitor Motif Containing 6) is a Protein Coding gene. 
+ENSG00000177954 RPS27 (Ribosomal Protein S27) is a Protein Coding gene. 
+ENSG00000142676 RPL11 (Ribosomal Protein L11) is a Protein Coding gene.
+ENSG00000108523 RNF167 (Ring Finger Protein 167) is a Protein Coding gene.
+
+data.frame(
+  CNBP = c("ENSG00000169714", "CNBP"),
+  RPL36AL = c("ENSG00000165502", "RPL36AL"),
+  EIF1 = c("ENSG00000173812", "EIF1"),
+  MYL12B = c("ENSG00000118680", "MYL12B") ,
+  UBC = c("ENSG00000150991", "UBC"),
+  RPS12 = c("ENSG00000112306", "RPS12"),
+  TMBIM6 = c("ENSG00000139644", "TMBIM6"),
+  RPS27 = c("ENSG00000177954", "RPS27"),
+  RPL11 = c("ENSG00000142676", "RPL11"),
+  RNF167 = c("ENSG00000108523", "RNF167")
+)
+
+
+1. 找出这10个基因，如果都是实实在在的基因的话，（见附件1）
+2. 找出这10个基因在LUAD中那56对样本中的表达，像你以前发给我的附件2这样。
+3. 看看这十个基因彼此之间有没有相关性，没有的话，这十个基因就可以作为我们的pan cancer referecne genes
+
+```{r fig.height=10, fig.width=12}
+
+fpkm2tpm <- function(fpkm){
+  tpm <- exp(log(fpkm) - log(sum(fpkm,na.rm=T)) + log(1e6))
+  tpm[which(is.na(tpm))] <- 0
+  return(tpm)
+}
+candidate <- c("ENSG00000169714", "ENSG00000165502", "ENSG00000173812", "ENSG00000118680", "ENSG00000150991", "ENSG00000112306", "ENSG00000139644", "ENSG00000177954", "ENSG00000142676", "ENSG00000108523")
+
+
+# normal.df
+load("TCGA/TCGA-LUAD.RNA-TPM.paired.N.rdata")
+# tumor.df
+load("TCGA/TCGA-LUAD.RNA-TPM.paired.T.rdata")
+
+normal.df <- normal.df[candidate,]
+tumor.df  <-  tumor.df[candidate,]
+
+normal.df <- data.frame( t(normal.df)  )
+tumor.df  <- data.frame(  t(tumor.df)  )
+
+normal.df$Group <- 'N'
+tumor.df$Group <- 'T'
+
+candidate.df <- data.frame(rbind(normal.df, tumor.df))
+
+
+
+library(corrplot)
+corr <- round(cor(candidate.df[,-c(ncol(candidate.df))], method = c("pearson")  ), 3)
+corrplot(corr, type = "upper", addCoef.col = "black", order = "hclust")
+
+#write.table(candidate.df,file="./test.tsv",sep="\t",quote = F)
+
+
+```
+
+
+# 2020-08-05 simple pipeline
+
+仿周老师的2020-08-05的步骤
+
+根据这10个基因相互间的相关性，我选出了彼此间correlation没有大于0.5的六个基因， 见附件上的第二页。我然后把这六个基因与去年那两篇文章中作者找出的各三个最稳定基因放在一起，用这12个基因（再加上GAPDH和HRT1）
+
+```{r eval=FALSE}
+
+# SFRS4 -> SRSF4
+gene.name.df <- data.frame(stringsAsFactors = FALSE,
+                           ENS=c("ENSG00000104824","ENSG00000169564","ENSG00000157916",
+                                 "ENSG00000099995","ENSG00000144021","ENSG00000116350",
+                                 "ENSG00000111640", "ENSG00000206503","ENSG00000234745",
+                                 "ENSG00000204525"),
+                           Symbol=c("HNRNPL", "PCBP1", "RER1", 
+                                    "SF3A1", "CIAO1", "SRSF4", 
+                                    "GAPDH", "HLA-A", "HLA-B", 
+                                    "HLA-C")
+                           )
+
+tmp.df <- t(data.frame(
+  CNBP = c("ENSG00000169714", "CNBP"),
+  RPL36AL = c("ENSG00000165502", "RPL36AL"),
+  EIF1 = c("ENSG00000173812", "EIF1"),
+  MYL12B = c("ENSG00000118680", "MYL12B") ,
+  UBC = c("ENSG00000150991", "UBC"),
+  RPS12 = c("ENSG00000112306", "RPS12"),
+  TMBIM6 = c("ENSG00000139644", "TMBIM6"),
+  RPS27 = c("ENSG00000177954", "RPS27"),
+  RPL11 = c("ENSG00000142676", "RPL11"),
+  RNF167 = c("ENSG00000108523", "RNF167"),
+  HEY1 = c("ENSG00000164683", "HEY1"), 
+  ERBB3 = c("ENSG00000065361","ERBB3"), # LUAD
+  HIF1A = c("ENSG00000100644","HIF1A"),
+  HER2 = c("ENSG00000141736","HER2"), # brac
+  MMP11 = c("ENSG00000099953","MMP11"),
+  MYBL2 = c("ENSG00000101057","MYBL2"),
+  NOTCH2 = c("ENSG00000134250","NOTCH2"), # COAD
+  BRCA1 = c("ENSG00000012048","BRCA1"),
+  PDC = c("ENSG00000116703","PDC"),
+  FNDC3B = c("ENSG00000075420","FNDC3B"),
+  ANXA1 = c("ENSG00000135046","ANXA1"),
+  stringsAsFactors = FALSE
+  )  
+)
+colnames(tmp.df) <- c("ENS", "Symbol")
+tmp.df <- data.frame(tmp.df,stringsAsFactors = FALSE)
+
+
+gene.name.df <- rbind(gene.name.df,tmp.df)
+row.names(gene.name.df) <- gene.name.df$Symbol
+
+
+save(gene.name.df,file="gene.name.df.rdata")
+
+```
+
+## LUAD, BRCA, COAD, NPC
+
+### Single
+
+肺癌LUAD：除已看的HLA外，再看看ERBB3, HIF1A
+乳腺癌：除HER2外， 再加两个：MMP11 和MYBL2
+结直肠癌：NOTCH2， BRCA1,  PDC
+NPC看：HLA和FNDC3B 和 ANXA1
+
+
+```{r fig.height=10, fig.width=12}
+
+# files <- read.table("/data/home2/Zhongxu/work/20200618neojunction/NPC/salmon/files",stringsAsFactors = F)
+# files <- files$V1
+# samples <- sapply(strsplit(files$V1,"/"), function(x) paste(x[9]) )
+# txi.salmon <- tximport(files, type = "salmon", txIn=F, geneIdCol="Name", abundanceCol = "TPM", countsCol = "NumReads", lengthCol = "Length")
+
+
+getNPCExp <- function(gene.ensg.id){
+    
+    # Var: txi.salmon
+    load("20200809-txi.salmon.rdata")
+    gene.exp.df <- txi.salmon$abundance[gene.ensg.id,]
+    gene.exp.df <- data.frame(t(gene.exp.df), stringsAsFactors = F)
+    #colnames(gene.exp.df)[match(gene.name.df$ENS, colnames(gene.exp.df))] <- gene.name.df$Symbol
+    gene.exp.df <- data.frame( log2(gene.exp.df+1) )
+    gene.exp.df$Group <- "T"
+    rm(txi.salmon)
+    gene.exp.df
+  }
+
+getGeneExpressionDf <- function(project, candidate){
+  
+  candidate.df <- NA
+  
+  if(!project=="NPC"){
+  
+  # normal.df
+  load(  paste("TCGA/TCGA-",project,".RNA-TPM.paired.N.rdata",sep="") )
+  # tumor.df
+  load(  paste("TCGA/TCGA-",project,".RNA-TPM.paired.T.rdata",sep="") )
+  
+  normal.df <- normal.df[candidate,]
+  tumor.df  <-  tumor.df[candidate,]
+  
+  normal.df <- data.frame( t(normal.df)  )
+  tumor.df  <- data.frame(  t(tumor.df)  )
+  
+  normal.df$Group <- 'N'
+  tumor.df$Group <- 'T'
+  
+  candidate.df <- data.frame(rbind(normal.df, tumor.df))
+  
+  rm(normal.df, tumor.df)
+  
+  } else  {
+    candidate.df <- getNPCExp(candidate)
+  }
+  
+  candidate.df
+}
+
+####################################################### RUN  ################
+
+project <- "BRCA"
+target.genes <- c("HER2","MMP11", "MYBL2") # BRCA
+
+# project <- "COAD"
+# target.genes <- c("NOTCH2", "BRCA1", "PDC") # COAD
+
+# project <- "LUAD"
+# target.genes <- c("HLA-A", "ERBB3", "HIF1A") # LUAD
+
+# project <- "NPC"
+# target.genes <- c("HLA-A","FNDC3B", "ANXA1") # NPC
+
+
+
+
+for (target.gene in target.genes){
+  
+# gene.name.df
+load("gene.name.df.rdata")
+  
+cat(target.gene, "\n")
+# 选择周老师说的
+gene.name.df <- gene.name.df[c(target.gene, # "ERBB3",  "HIF1A", "HLA-A", # 
+                               "HNRNPL","PCBP1", "RER1", "SF3A1", "CIAO1", "SRSF4", # top 6                 
+                               "CNBP", "MYL12B", "UBC", "TMBIM6", "RPS27", "EIF1",
+                               "GAPDH", "HEY1" # 再加上GAPDH和HEY1
+                               ),
+                             ]
+
+
+# 从TCGA拉取
+gene.exp.df <- getGeneExpressionDf(project, gene.name.df$ENS)				
+
+
+# 转成基因名
+colnames(gene.exp.df)[match(gene.name.df$ENS, colnames(gene.exp.df))] <- gene.name.df$Symbol
+
+
+#write.table(gene.exp.df, file="tmp.tsv",sep="\t", quote = F)
+
+# 最后一列为Group，对HLA-A normalize之前计算correlation
+library(corrplot)
+correlation.before <- round(cor(gene.exp.df[,-c(ncol(gene.exp.df))], method = c("pearson")  ), 3) # spearman pearson
+corrplot(correlation.before, type = "upper", addCoef.col = "black", order = "hclust", title = paste(target.gene," - before normalization"), mar=c(0,0,1,0))
+
+# 之前的correlation
+#write.table(correlation.before, file="tmp.tsv",sep="\t", quote = F)
+
+
+###############################分别对HLA-A进行
+target.gene.exp <- as.vector( gene.exp.df[,target.gene] )
+
+# 分别对HLA-A进行normalization，最后一列为group
+gene.exp.df[,-c(ncol(gene.exp.df))] <- -sweep(gene.exp.df[,-c(ncol(gene.exp.df))], 1, target.gene.exp , "-")
+gene.exp.df[,target.gene] <- target.gene.exp
+
+
+# 最后一列为Group，对HLA-A normalize之后计算correlation，，最后一列为group
+correlation.after <- round(cor(gene.exp.df[,-c(ncol(gene.exp.df))], method = c("pearson")  ), 3)
+corrplot(correlation.after, type = "upper", addCoef.col = "black", order = "hclust", title = paste(target.gene," - after normalization"), mar=c(0,0,1,0) )
+
+# normalize 之后与之前的相关性
+knitr::kable( t (data.frame( cor = correlation.after[target.gene,]  ) )  )
+t (data.frame( cor = correlation.after[target.gene,]  ) )  
+
+# raw data
+# write.table(gene.exp.df, file="tmp.tsv",sep="\t", quote = F)
+
+########################################## 以上是correlation的分析，以下是组合分析
+
+
+library(foreach)
+
+# 从TCGA拉取
+gene.exp.df <- getGeneExpressionDf(project, gene.name.df$ENS)				
+
+#转成基因名
+colnames(gene.exp.df)[match(gene.name.df$ENS, colnames(gene.exp.df))] <- gene.name.df$Symbol
+
+# 去掉Group和targe gene 
+total.panel.mem <- colnames(gene.exp.df)[-match(c("Group",target.gene), colnames(gene.exp.df))]
+
+# HLA-A的原始数据
+target.gene.exp <- as.vector( gene.exp.df[,target.gene] )
+
+
+# 从1个到所有gene拿来normalize
+all.res <- foreach::foreach(panel.size=1:length(total.panel.mem), .combine = rbind) %do% {
+
+    size.combination <- gtools::combinations(length(total.panel.mem), panel.size, total.panel.mem )
+  
+
+  # 遍历特定size下的所有组合
+  com.res <- foreach(row.ind=1:nrow(size.combination), .combine = rbind ) %do% {
+    combination.genes <- size.combination[row.ind,]
+    # 转成string 用于保存
+    combination.genes.string <- paste(combination.genes,sep = '', collapse = ", ")
+
+    combination.genes.exp <- data.frame(gene.exp.df[,combination.genes])
+
+    # normalize前后的相关性
+    post.target.gene.exp <- target.gene.exp - rowMeans(combination.genes.exp)
+    correlation <- round(cor(post.target.gene.exp, target.gene.exp, method = "pearson"),3)
+
+    # 这几个基因 原来和target基因的平均相关性
+    tmp.cor <- mean(correlation.after[target.gene, combination.genes])
+
+    c(panel.size, correlation, combination.genes.string , tmp.cor  )
+  }
+  com.res
+}
+
+
+
+all.res <- as.data.frame(all.res, stringsAsFactors = FALSE)
+all.res <- all.res[ order(all.res$V2,decreasing = T), ]
+
+write.table(all.res, file="tmp.tsv",sep="\t", quote = F, row.names = F)
+
+
+
+all.res$Gene <- paste(c(target.gene, project), sep="", collapse = "-")
+
+# 
+# if (exists("all.projects.comb")){
+#   all.projects.comb <- rbind(all.projects.comb, all.res)
+# }else{
+#   all.projects.comb <- all.res
+# }
+
+
+}
+
+
+```
+
+### Save Combination
+
+```{r}
+
+# # 所有项目所有基因的保存
+# save(all.projects.comb,file="20200808-all.combination.rdata") # 3个癌症9个基因
+# save(all.projects.comb,file="20200922-all.combination.rdata") # 4个癌症12个基因
+
+```
+
+## R code for paper
+
+```{r}
+
+# required library
+library(foreach)
+library(gtools)
+
+# The first row is gene names
+# The first column is target gene to be normalized
+# The other columns are reference genes
+
+express.df <- read.table(file, header = T, stringsAsFactors = F)
+
+
+# The expression of target gene
+target.gene.exp <- as.vector( express.df[,1] )
+
+# The expression of reference genes
+ref.gene.exp <- express.df[,-c(1)]
+
+# all reference gene names
+ref.gene.names <- colnames(ref.gene.exp)
+
+# iterate all combinations
+all.res <- foreach::foreach(panel.size=1:length(ref.gene.names), .combine = rbind) %do% {
+  
+  size.combination <- gtools::combinations(length(ref.gene.names), panel.size, ref.gene.names )
+  
+  # specific panel size
+  com.res <- foreach(row.ind=1:nrow(size.combination), .combine = rbind ) %do% {
+    combination.genes <- size.combination[row.ind,]
+    
+    # store combination
+    combination.genes.string <- paste(combination.genes, sep = '', collapse = ", ")
+    
+    combination.genes.exp <- ref.gene.exp[, combination.genes]
+    
+    # normalize
+    post.target.gene.exp <- target.gene.exp - rowMeans(combination.genes.exp)
+    correlation <- round(cor(post.target.gene.exp, target.gene.exp, method = "pearson"),3)
+    
+    c(panel.size, correlation, combination.genes.string )
+    
+  }
+  com.res
+}
+
+all.res <- as.data.frame(all.res, stringsAsFactors = FALSE)
+all.res <- all.res[ order(all.res$V2,decreasing = T), ]
+colnames(all.res) <- c("Panel.size", "Pearson.correlation","Panel.members")
+
+cat("The best combination is ",
+    all.res$Panel.members[which.max(ll.res$Pearson.correlation)],'\n',
+    "Correlation: ", max(ll.res$Pearson.correlation)
+    )
+
+```
+
+## Prepare paper
+
+```{r eval=FALSE}
+
+load("20200922-all.combination.rdata")
+
+colnames(all.projects.comb) <- c("Size", "Corr", "Panel", "Average", "Gene")
+
+#reshape2::dcast(all.projects.comb[,-c(4)], Size+Panel~Gene, value.var=c("Corr"))
+#reshape2::dcast(all.projects.comb[,-c(2)], Size+Panel~Gene, value.var=c("Average"))
+
+write.table(
+  reshape2::dcast(all.projects.comb[,-c(4)], Size+Panel~Gene, value.var=c("Corr"))      , 
+  file="tmp.tsv",
+  sep="\t", 
+  quote = F, 
+  row.names = F)
+
+```
+
+
+
+
+
+
+

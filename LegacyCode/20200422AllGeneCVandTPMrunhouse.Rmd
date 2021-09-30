@@ -1,0 +1,375 @@
+---
+title: "housek"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library("TCGAbiolinks")
+library(SummarizedExperiment)
+# setwd("/home/Zhongxu/work/housek")
+```
+
+下载数据，并提取配对的样本保存，生成pariedNT的文件
+
+# TCGA data
+
+## Download TCGA dataset
+
+Download TCGA gene expression (FPKM (Fragments Per Kilobase Million) based) dataset (hg38).
+
+All the data has been save as 'project.data' variable in folder.
+
+```{r eval=FALSE, echo=FALSE}
+#library("TCGAbiolinks")
+# get all project names
+projects <- getGDCprojects()$project_id
+projects <- projects[grep("TCGA",projects )]
+
+for (project in projects){
+  cat(project, "\n")
+  if(file.exists(paste("TCGA/", project, ".RNA-FPKM.rdata", sep=''))){
+    cat("Done\n")
+    next()
+  }
+	query <- GDCquery(project = project,
+             data.category = "Transcriptome Profiling",
+             workflow.type = "HTSeq - FPKM", # HTSeq - FPKM-UQ or HTSeq - Counts
+             data.type = "Gene Expression Quantification",
+             experimental.strategy = "RNA-Seq",
+             legacy = FALSE
+	)
+	GDCdownload(query)
+  project.data <- GDCprepare(query = query)
+  save(project.data, file = paste("TCGA/", project, ".RNA-FPKM.rdata", sep=''))
+}
+rm(query, project.data, projects, project)
+
+```
+
+#准备配对的样本
+
+把配对的样本都按照project保存起来
+
+保存的数据为log2 transformation之后的数据
+
+2020-04-19
+```{r }
+
+projects <- getGDCprojects()$project_id
+projects <- projects[grep("TCGA",projects )]
+
+project.names <- data.frame( English = c("TCGA-ACC", "TCGA-BLCA", "TCGA-BRCA", "TCGA-CESC", "TCGA-CHOL", "TCGA-COAD", "TCGA-COADREAD", "TCGA-DLBC", "TCGA-ESCA", "TCGA-FPPP", "TCGA-GBM", "TCGA-GBMLGG", "TCGA-HNSC", "TCGA-KICH", "TCGA-KIPAN", "TCGA-KIRC", "TCGA-KIRP", "TCGA-LAML", "TCGA-LGG", "TCGA-LIHC", "TCGA-LUAD", "TCGA-LUSC", "TCGA-MESO", "TCGA-OV", "TCGA-PAAD", "TCGA-PCPG", "TCGA-PRAD", "TCGA-READ", "TCGA-SARC", "TCGA-SKCM", "TCGA-STAD", "TCGA-STES", "TCGA-TGCT", "TCGA-THCA", "TCGA-THYM", "TCGA-UCEC", "TCGA-UCS", "TCGA-UVM"),
+ Chinese = c("肾上腺皮质癌", "膀胱尿路上皮癌", "乳腺浸润癌", "宫颈鳞癌和腺癌", "胆管癌", "结肠癌", "结直肠癌", "弥漫性大B细胞淋巴瘤", "食管癌", "FFPE试点二期", "多形成性胶质细胞瘤", "胶质瘤", "头颈鳞状细胞癌", "肾嫌色细胞癌", "混合肾癌", "肾透明细胞癌", "肾乳头状细胞癌", "急性髓细胞样白血病", "脑低级别胶质瘤", "肝细胞肝癌", "肺腺癌", "肺鳞癌", "间皮瘤", "卵巢浆液性囊腺癌", "胰腺癌", "嗜铬细胞瘤和副神经节瘤", "前列腺癌", "直肠腺癌", "肉瘤", "皮肤黑色素瘤", "胃癌", "胃和食管癌", "睾丸癌", "甲状腺癌", "胸腺癌", "子宫内膜癌", "子宫肉瘤", "葡萄膜黑色素瘤"), 
+ Full = c("Adrenocortical carcinoma", "Bladder Urothelial Carcinoma", "Breast invasive carcinoma", "Cervical squamous cell carcinoma and endocervical adenocarcinoma", "Cholangiocarcinoma", "Colon adenocarcinoma", "Colon adenocarcinoma/Rectum adenocarcinoma Esophageal carcinoma", "Lymphoid Neoplasm Diffuse Large B-cell Lymphoma", "Esophageal carcinoma", "FFPE Pilot Phase II", "Glioblastoma multiforme", "Glioma", "Head and Neck squamous cell carcinoma ", "Kidney Chromophobe", "Pan-kidney cohort (KICH+KIRC+KIRP) ", "Kidney renal clear cell carcinoma", "Kidney renal papillary cell carcinoma ", "Acute Myeloid Leukemia", "Brain Lower Grade Glioma", "Liver hepatocellular carcinoma", "Lung adenocarcinoma", "Lung squamous cell carcinoma", "Mesothelioma", "Ovarian serous cystadenocarcinoma", "Pancreatic adenocarcinoma", "Pheochromocytoma and Paraganglioma", "Prostate adenocarcinoma", "Rectum adenocarcinoma", "Sarcoma", "Skin Cutaneous Melanoma", "Stomach adenocarcinoma", "Stomach and Esophageal carcinoma", "Testicular Germ Cell Tumors", "Thyroid carcinoma", "Thymoma", "Uterine Corpus Endometrial Carcinoma", "Uterine Carcinosarcoma", "Uveal Melanoma"),
+ stringsAsFactors = FALSE
+)
+
+
+fpkm2tpm <- function(fpkm){
+  tpm <- exp(log(fpkm) - log(sum(fpkm,na.rm=T)) + log(1e6))
+  tpm[which(is.na(tpm))] <- 0
+  return(tpm)
+}
+
+for (project in projects){
+  #project <- c("TCGA-LUAD")
+  
+  cat(project, "\n")
+	load(paste("TCGA/",project,".RNA-FPKM.rdata",sep = ''))
+
+	  # get matrix
+  expression.df <- assay(project.data)
+  rm(project.data)
+  # convert to tpm
+  expression.df <- apply(expression.df, 2, fpkm2tpm)
+
+  # get NT and TP sample
+  # Solid Tissue Normal
+  analysis.tcgaNT = TCGAquery_SampleTypes(colnames(expression.df), typesample = c("NT") )
+  # Primary Solid Tumor
+  analysis.tcgaTP = TCGAquery_SampleTypes(colnames(expression.df), typesample = c("TP") )
+  
+
+  if(length(analysis.tcgaTP)==0 ){
+    cat("No samples , skip\n\n")
+    rm(expression.df)
+    next()
+  }
+  
+  # short name
+  analysis.tcgaNT.short <- sapply( strsplit(analysis.tcgaNT,"-"), function(x) paste(x[1],x[2],x[3],sep = "-"))
+  analysis.tcgaTP.short <- sapply( strsplit(analysis.tcgaTP,"-"), function(x) paste(x[1],x[2],x[3],sep = "-"))
+  
+     # find paired tumor
+    analysis.tcgaTP <- analysis.tcgaTP[ na.omit(match(analysis.tcgaNT.short,analysis.tcgaTP.short) ) ]
+    # update short name
+    analysis.tcgaNT.short <- sapply( strsplit(analysis.tcgaNT,"-"), function(x) paste(x[1],x[2],x[3],sep = "-"))
+    analysis.tcgaTP.short <- sapply( strsplit(analysis.tcgaTP,"-"), function(x) paste(x[1],x[2],x[3],sep = "-"))
+    
+    # fidn paired normal
+    analysis.tcgaNT <- analysis.tcgaNT[ na.omit(match(analysis.tcgaTP.short,analysis.tcgaNT.short) ) ]
+    # update short name
+    analysis.tcgaNT.short <- sapply( strsplit(analysis.tcgaNT,"-"), function(x) paste(x[1],x[2],x[3],sep = "-"))
+    analysis.tcgaTP.short <- sapply( strsplit(analysis.tcgaTP,"-"), function(x) paste(x[1],x[2],x[3],sep = "-"))
+  
+    
+  cat("Avaliable Tumor:",length(analysis.tcgaTP.short),"Normal",length(analysis.tcgaNT.short),"\n")
+  cat("Avaliable Tumor:",length(analysis.tcgaTP),"Normal",length(analysis.tcgaNT),"\n")
+  
+  if(length(analysis.tcgaTP)==0){
+    cat("No samples , skip\n\n")
+    rm(expression.df)
+    next()
+  }
+  
+  
+  # subset samples
+  expression.df <- expression.df[,c(analysis.tcgaNT,analysis.tcgaTP)]
+  
+  # log2 transformation
+  expression.df <- log2(expression.df+1)
+  
+  normal.df <- expression.df[,analysis.tcgaNT]
+  tumor.df  <- expression.df[,analysis.tcgaTP]
+  
+  # save data
+  save(normal.df, file = paste("TCGA/", project, ".RNA-TPM.paired.N.rdata", sep='') )
+  save(tumor.df, file = paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='') )
+  
+  rm(expression.df,tumor.df, normal.df)
+}
+
+
+```
+
+## 分析CV,基因panel
+```{r}
+# 找不到SFRS3，用SRSF3代替； SARS --> SARS1    C19orf56-->WDR83OS
+#  DULLARD-->CTDNEP1    C3orf75-->ELP6   C19orf43-->TRIR
+# SFRS4-->SRSF4
+
+
+library(org.Hs.eg.db)
+library(goeveg)
+# pancancer
+gene.symbol <- c("MBTPS1", "HNRNPA0", "SF3A1", "SF3B2", "GGNBP2", "HNRNPUL2", "SRSF3", "RTF1", "CIAO1", "TM9SF3", "PRPF8", "GTF2F1", "SRSF4", "SARS1", "ARIH1", "TEX261", "VCP", "XRCC5", "VPS4A", "KPNA6", "HNRNPL", "PCBP1", "PFDN1", "RER1", "RNF10", "SNX17", "EMC4", "FAM32A", "HNRNPC", "IST1", "MRPL43")
+
+# lung cancer
+#gene.symbol <- c("SRSF3", "HP1BP3", "MBTPS1", "SARS1", "FLOT2", "SRCAP", "TMEM50A", "NMT1", "TEX261", "C6orf62", "KIAA0100", "VPS4A", "IL13RA1", "ARF3", "NFE2L1", "EEF2", "GNB2", "SLC35E1", "KDM3B", "LAPTM4A", "WDR83OS", "PCBP1", "CTDNEP1", "ACTR1A", "GABARAP", "SRP14", "FAM32A", "STX5", "SNX17", "UBE2D2", "SDHAF2", "ELP6", "SYF2", "HNRNPK", "TMEM115", "TRIR", "TUSC2", "PPP1R7", "UBE2D3")
+
+gene.ens <- mapIds(org.Hs.eg.db, keys=gene.symbol,
+        column="ENSEMBL",
+        keytype="SYMBOL",
+        multiVals="first")
+
+
+
+projects <- getGDCprojects()$project_id
+projects <- projects[grep("TCGA",projects )]
+
+
+
+normal.gene.df <- 0
+tumor.gene.df <- 0
+  
+for (project in projects){
+  #project <- c("TCGA-LUAD")
+  
+  cat(project, "\n")
+  if( ! file.exists( paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='') )){
+    cat("Skip\n")
+    next()
+  }
+  
+  #  normal.df  paste("TCGA/", project, ".RNA-TPM.paired.N.rdata", sep='') 
+  #  tumor.df   paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='')
+  
+  load(paste("TCGA/", project, ".RNA-TPM.paired.N.rdata", sep='') )
+  load(paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='') )
+  
+  normal.df <- normal.df[gene.ens,] # subset from full data.frame
+  tumor.df <- tumor.df[gene.ens,]
+  
+  normal.sample.short <- sapply( strsplit(colnames(normal.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+  tumor.sample.short <- sapply( strsplit(colnames(tumor.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+
+  if( sum(!normal.sample.short == tumor.sample.short) != 0){
+    stop("Sample name error")
+  }
+  
+   
+  if (tumor.gene.df == 0 & normal.gene.df==0){
+    normal.gene.df <- normal.df
+    tumor.gene.df <- tumor.df
+  }else{
+    normal.gene.df <- cbind(normal.gene.df, normal.df)
+    tumor.gene.df <- cbind(tumor.gene.df, tumor.df)
+    
+  }
+  
+
+  
+}
+
+normal.sample.short <- sapply( strsplit(colnames(normal.gene.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+  tumor.sample.short <- sapply( strsplit(colnames(tumor.gene.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+
+  if( sum(!normal.sample.short == tumor.sample.short) != 0){
+    stop("Sample name error")
+  }
+
+rownames(normal.gene.df) <- names(gene.ens)
+rownames(tumor.gene.df)  <- names(gene.ens)
+
+write.table(normal.gene.df,file="result/Normal.gene.expression.csv",quote = F, sep = ",")
+write.table(tumor.gene.df,file="result/Tumor.gene.expression.csv",quote = F, sep = ",")
+
+
+normal.cv <- sapply(names(gene.ens), function(x) cv(normal.gene.df[x,]) )
+tumor.cv <- sapply(names(gene.ens), function(x) cv(tumor.gene.df[x,]) )
+pearson.cor <- sapply(names(gene.ens), function(x) cor(as.numeric(normal.gene.df[x,]),as.numeric(tumor.gene.df[x,]),method = c("pearson") )    )
+
+res <- data.frame(Normal.CV = normal.cv, Tumor.CV = tumor.cv, Pearson.Correlation = pearson.cor, stringsAsFactors = F, row.names = names(gene.ens))
+rm(normal.cv, tumor.cv, pearson.cor)
+
+write.table(res, file="result/Result.csv", quote = F, sep = ",")
+
+
+```
+
+##分析CV，所有基因
+
+```{r}
+# 找不到SFRS3，用SRSF3代替； SARS --> SARS1    C19orf56-->WDR83OS
+#  DULLARD-->CTDNEP1    C3orf75-->ELP6   C19orf43-->TRIR
+# SFRS4-->SRSF4
+
+
+library(goeveg)
+
+
+projects <- getGDCprojects()$project_id
+projects <- projects[grep("TCGA",projects )]
+
+
+normal.gene.df <- 0
+tumor.gene.df <- 0
+  
+for (project in projects){
+  #project <- c("TCGA-LUAD")
+  
+  cat(project, "\n")
+  if( ! file.exists( paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='') )){
+    cat("Skip\n")
+    next()
+  }
+  
+  #  normal.df  paste("TCGA/", project, ".RNA-TPM.paired.N.rdata", sep='') 
+  #  tumor.df   paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='')
+  
+  load(paste("TCGA/", project, ".RNA-TPM.paired.N.rdata", sep='') )
+  load(paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='') )
+  
+  normal.sample.short <- sapply( strsplit(colnames(normal.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+  tumor.sample.short <- sapply( strsplit(colnames(tumor.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+
+  if( sum(!normal.sample.short == tumor.sample.short) != 0){
+    stop("Sample name error")
+  }
+  
+   
+  if (tumor.gene.df == 0 & normal.gene.df==0){
+    normal.gene.df <- normal.df
+    tumor.gene.df <- tumor.df
+  }else{
+    normal.gene.df <- cbind(normal.gene.df, normal.df)
+    tumor.gene.df <- cbind(tumor.gene.df, tumor.df)
+    
+  }
+  
+
+  
+}
+
+normal.sample.short <- sapply( strsplit(colnames(normal.gene.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+
+tumor.sample.short <- sapply( strsplit(colnames(tumor.gene.df),"-"), function(x) paste(x[1],x[2],x[3],sep="-") )
+
+  if( sum(!normal.sample.short == tumor.sample.short) != 0){
+    stop("Sample name error")
+  }
+
+normal.row.meam <- rowMeans(normal.gene.df)
+tumorl.row.mean <- rowMeans(tumor.gene.df)
+  
+ind <- (normal.row.meam+tumorl.row.mean) > 5
+normal.gene.df <- normal.gene.df[ind,]
+tumor.gene.df <- tumor.gene.df[ind,]
+rm(normal.row.meam,tumorl.row.mean)
+  
+write.table(normal.gene.df,file="result/Normal.gene.expression.csv",quote = F, sep = ",")
+write.table(tumor.gene.df,file="result/Tumor.gene.expression.csv",quote = F, sep = ",")
+
+
+normal.cv <- sapply(row.names(normal.gene.df), function(x) cv(normal.gene.df[x,]) )
+tumor.cv <- sapply(row.names(tumor.gene.df), function(x) cv(tumor.gene.df[x,]) )
+
+
+
+pearson.cor <- sapply(row.names(tumor.gene.df), function(x) cor(as.numeric(normal.gene.df[x,]),as.numeric(tumor.gene.df[x,]),method = c("pearson") )    )
+
+
+
+res <- data.frame(Normal.CV = normal.cv, 
+                  Tumor.CV = tumor.cv, 
+                  Pearson.Correlation = pearson.cor, 
+                  stringsAsFactors = F, 
+                  row.names = row.names(tumor.gene.df),
+                  Normal.TPM.mean = rowMeans(normal.gene.df),
+                  Tumor.TPM.mean = rowMeans(tumor.gene.df)
+                  )
+rm(normal.cv, tumor.cv, pearson.cor)
+
+write.table(res, file="result/Result.csv", quote = F, sep = ",")
+
+
+```
+
+
+##统计癌症的种类和样本数
+```{r}
+projects <- getGDCprojects()$project_id
+projects <- projects[grep("TCGA",projects )]
+
+
+projtect.num = 0
+tumor.num = 0
+normal.num = 0
+
+for (project in projects){
+  #project <- c("TCGA-LUAD")
+  
+  cat(project, "\n")
+  if( ! file.exists( paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='') )){
+    cat("Skip\n")
+    next()
+  }
+  
+  projtect.num = projtect.num + 1
+  #  normal.df  paste("TCGA/", project, ".RNA-TPM.paired.N.rdata", sep='') 
+  #  tumor.df   paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='')
+  
+  load(paste("TCGA/", project, ".RNA-TPM.paired.N.rdata", sep='') )
+  load(paste("TCGA/", project, ".RNA-TPM.paired.T.rdata", sep='') )
+  
+  tumor.num  = tumor.num  + ncol(tumor.df)
+  normal.num = normal.num + ncol(normal.num)
+
+  
+}
+
+
+
+```
+
+

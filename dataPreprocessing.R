@@ -2,7 +2,7 @@ library(dplyr)
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-# 清洗上一年的数据，共shiny使用
+# 清洗上一年的数据，供shiny使用,在三个癌症中的结果
 load("/data/home2/Zhongxu/work/from35/housek/20200922-all.combination.rdata")
 
 all.projects.comb = reshape2::dcast(all.projects.comb, V1+V3~Gene, value.var="V2")
@@ -17,7 +17,7 @@ save(all.projects.comb, file="/data/home2/Zhongxu/work/iRGvalid/data/all.combina
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-# 过滤paried sample中不表达的，节省空间，并且转换成基因名
+# 过滤paried sample中不表达的，节省空间，并且转换成基因名, SKCM的数据不含配对normal，处理见下面
 for(nf in list.files(path = "/data/home2/Zhongxu/work/from35/housek/TCGA", 
                      full.names = FALSE, pattern = "TPM.paired.N.rdata") ){
   
@@ -53,11 +53,47 @@ for(nf in list.files(path = "/data/home2/Zhongxu/work/from35/housek/TCGA",
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# 20210930 处理SKCM的数据，SKCM没有paried N和T，用的是所有的tumor样本
+project="SKCM"
+load(paste0("~/work/from35/housek/TCGA/TCGA-", project, ".RNA-FPKM.rdata") )
+# FPKM to TPM
+# get matrix
+expression.df <- assay(project.data)
+rm(project.data)
+expression.df <- loonR::fpkm2tpm(expression.df)
+# Primary Solid Tumor
+analysis.tcgaTP = TCGAquery_SampleTypes(colnames(expression.df), typesample = c("TP") )
+project.df  <- expression.df[,analysis.tcgaTP] # 只有96个，其他的都是TM
+project.df <- log2(project.df+1)
+
+project.df = project.df[rowMeans(project.df)>0.5, ]
+cat(dim(project.df))
+
+id.mapping <- loonR::id_mapping(row.names(project.df), key = "ENSEMBL", column = c("SYMBOL")  )
+
+
+# 如果没有map到或者重复则删除
+id.mapping <- id.mapping[ !duplicated(id.mapping$SYMBOL), ] 
+id.mapping <- id.mapping[ !is.na(id.mapping$SYMBOL), ] 
+
+project.df <- project.df[id.mapping$Ref, ]
+rownames(project.df) = id.mapping$SYMBOL
+
+# 实际上不是真实的paired数据
+save(project.df, file=paste0("/data/home2/Zhongxu/work/iRGvalid/TCGA-", project, ".TPM.paired.T.N.rdata")  )
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
 getGeneExpressionDf <- function(project, candidate, referenece.genes){
   
-  project = "TCGA-BRCA"
-  candidate = "HLA-A"
-  referenece.genes = "CIAO1\nCNBP\nHEY1\nUBC"
+  # project = "TCGA-BRCA"
+  # candidate = "HLA-A"
+  # referenece.genes = "CIAO1\nCNBP\nHEY1\nUBC"
   
   load(paste0("Data/", project,".TPM.paired.T.N.rdata"))
   referenece.genes = unlist( strsplit(referenece.genes,"\n") )
